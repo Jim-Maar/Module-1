@@ -162,9 +162,25 @@ class Scalar:
         assert h is not None
         assert h.last_fn is not None
         assert h.ctx is not None
-
-        # TODO: Implement for Task 1.3.
-        raise NotImplementedError("Need to implement for Task 1.3")
+        derivatives: Iterable[Tuple[Variable, Any]] = []
+        f: ScalarFunction = h.last_fn
+        d_new: Tuple[float] = f._backward(h.ctx, d_output)
+        # parents = self.parents
+        """
+        if len(parents) == 2:
+            if parents[0] == parents[1] and not parents[0].is_constant():
+                # derivatives += parents[0].chain_rule(d_new[0] + d_new[1])
+                derivatives.append((parents[0], d_new[0] + d_new[1]))
+                return derivatives
+        """
+        for i, parent in enumerate(self.parents):
+            if parent.is_constant():
+                continue
+            # if parent.is_leaf():
+            derivatives.append((parent, d_new[i]))
+            # continue
+            # derivatives += self.parent.chain_rule(d_new[i])
+        return derivatives
 
     def backward(self, d_output: Optional[float] = None) -> None:
         """

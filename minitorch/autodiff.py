@@ -22,13 +22,16 @@ def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) 
     Returns:
         An approximation of $f'_i(x_0, \ldots, x_{n-1})$
     """
+    val: float = vals[arg]
+    vals2 = list(vals)
     halfEpsilon: float = epsilon / 2
-    vals[arg] -= halfEpsilon
-    f1: float = f(vals)
-    vals[arg] += halfEpsilon
-    f2: float = f(vals)
-    vals[arg] -= halfEpsilon
-    return (f2 - f1)
+    # vals2 = vals[:, arg] + (val + halfEpsilon) + vals[arg + 1, :]
+    vals2[arg] = val - halfEpsilon
+    f1: float = f(*tuple(vals2))
+    # vals2 = vals[:, arg] + (val - halfEpsilon) + vals[arg + 1, :]
+    vals2[arg] = val + halfEpsilon
+    f2: float = f(*tuple(vals2))
+    return (f2 - f1) / epsilon
 
 
 variable_count = 1
@@ -56,6 +59,17 @@ class Variable(Protocol):
         pass
 
 
+def visit(variable: Variable, sortedList: Iterable[Variable], markedDict):
+    if variable.unique_id in markedDict:
+        return
+    if variable.is_leaf():
+        return
+    for parent in variable.parents:
+        visit(parent, sortedList, markedDict)
+    sortedList.append(variable)
+    markedDict[variable.unique_id] = True
+
+
 def topological_sort(variable: Variable) -> Iterable[Variable]:
     """
     Computes the topological order of the computation graph.
@@ -66,8 +80,23 @@ def topological_sort(variable: Variable) -> Iterable[Variable]:
     Returns:
         Non-constant Variables in topological order starting from the right.
     """
-    # TODO: Implement for Task 1.4.
-    raise NotImplementedError("Need to implement for Task 1.4")
+    # Muss noch getestet werden
+    # breakpoint()
+    sortedList: Iterable[Variable] = []
+    markedDict = dict()
+    visit(variable, sortedList, markedDict)
+    sortedList.reverse()
+    return sortedList
+
+
+def accumulate_derivate(variable: Variable, deriv: Any, derivatives: Iterable) -> None:
+    if variable.is_leaf():
+        variable.accumulate_derivative(deriv)
+    else:
+        if variable.unique_id in derivatives:
+            derivatives[variable.unique_id] += deriv
+        else:
+            derivatives[variable.unique_id] = deriv
 
 
 def backpropagate(variable: Variable, deriv: Any) -> None:
@@ -81,8 +110,14 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
 
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
     """
-    # TODO: Implement for Task 1.4.
-    raise NotImplementedError("Need to implement for Task 1.4")
+    variables: Iterable[Variable] = topological_sort(variable)
+    derivatives = dict()
+    derivatives[variable.unique_id] = deriv
+    for currVar in variables:
+        deriv: Any = derivatives[currVar.unique_id]
+        inputs: Iterable[Tuple[Variable, Any]] = currVar.chain_rule(deriv)
+        for inputVar, inputDeriv in inputs:
+            accumulate_derivate(inputVar, inputDeriv, derivatives)
 
 
 @dataclass
